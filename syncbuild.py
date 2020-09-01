@@ -1,6 +1,6 @@
 # coding=utf-8
 # python version should > 2.7.10
-#shannon 2019.11.28
+# shannon 2019.11.28
 
 import os
 import sys
@@ -8,6 +8,7 @@ import git
 import time
 import pexpect
 import threading
+import subprocess
 from git import Git
 import xml.dom.minidom
 from xml.dom.minidom import parse
@@ -42,14 +43,13 @@ def update_ap_repository(codeaurora, repository, name):
     else:
         time.sleep(2)
         #semlock.release()
-        os.system("git remote update")
-        """
-        cmd = "/usr/bin/git remote update"
-        child = pexpect.spawn(cmd, timeout=1800)
+        #os.system("git remote update")
+        
+        cmd = "git remote update"
+        child = pexpect.spawn(cmd, timeout=3000)
         child.logfile = sys.stdout
         child.wait()
         child.close()
-        """
         print get_time()+" | update repository: "+name+" Successful \n"
 
 def creat_ap_repository(codeaurora, repository, name):
@@ -105,17 +105,33 @@ def update_modme_repository(modem_repository):
         
         #os.system("git remote update")  
         cmd = "git remote update"
-        child = pexpect.spawn(cmd)
+        child = pexpect.spawn(cmd, timeout=300)
         child.logfile = sys.stdout
         index = child.expect(["Username for", pexpect.EOF, pexpect.TIMEOUT])
         if index == 0:
-            child.sendline("asa.wang@quectel.com\n")
+            time.sleep(3)
+            child.sendline("Simon.Xiao@quectel.com\n")
             index = child.expect(["Password for", pexpect.EOF, pexpect.TIMEOUT])
             if index == 0:
-                child.sendline("Asa.wang@12\n")
+                time.sleep(3)
+                child.sendline("Simon8668\n")
                 print "Repository:"+repository+" input pwd over!"
-                child.wait()
-                print get_time()+" | update repository: "+repository+" Successful \n"
+                child.timeout = 300    # 重新设置超时时间
+                index = child.expect(["remote:", pexpect.EOF, pexpect.TIMEOUT])
+                if index == 0:
+                    #child.wait()
+                    child.timeout = 3600    # 重新设置超时时间
+                    index = child.expect(["Resolving deltas: 100%", pexpect.EOF, pexpect.TIMEOUT])
+                    if index == 0:
+                        child.wait()
+                        time.sleep(180)
+                        print get_time()+" | update repository: "+repository+" Successful \n"
+                    else:
+                        child.wait()
+                        print get_time()+" | update repository: "+repository+" update Timeout \n"
+                else:
+                    print get_time()+" | update repository: "+repository+" Pass\n"
+            
             else:
                 print get_time()+" | update repository: "+repository+" username Error\n"
                 print "username error!" 
@@ -125,10 +141,45 @@ def update_modme_repository(modem_repository):
         
         print "-----------------------------------------------------------------------------\n"
 
-def update_all_repository(projectlist_file):
+def update_all_repository(projects_list_file):
     print "Update all repository ..."
+    
+    WKDIR = os.getcwd()
+    with open(projects_list_file,'r') as f:
+        r_line = f.readlines()
+        for repository in r_line:
+            print "-----------------------------------------------------------------------------\n"
+            repository = repository.strip('\n')
+            print "Get repository: "+repository
+            #if "external/private_le" in repository:
+            if "baseline" not in repository:
+                print "Skip not baseline repository ..."
+                continue
 
-
+            filters = ['quectel-wireless-solutions-co-ltd','external/private_le']
+            if any( keyword in repository for keyword in filters):
+                print "Skip modem and private repository ..."
+                continue
+            
+            repository = repository.split('/',1)[1]
+            os.chdir(os.getcwd() + '/' +repository)
+            print "Current Dir:"+os.getcwd()
+            print get_time()+" | update repository: "+repository+" Start \n"
+            time.sleep(1)
+            os.system("git remote update")
+            
+            ''' 
+            cmd = "git remote update"
+            child = pexpect.spawn(cmd, timeout=3000)
+            child.logfile = sys.stdout
+            child.wait()
+            child.close()
+            '''
+            
+            print get_time()+" | update repository: "+repository+" Successful \n"
+            os.chdir(WKDIR)
+            
+        print "-----------------------------------------------------------------------------\n"
 
 def handle_gitlist_xml(config_xml):
     cafs={}
@@ -223,16 +274,24 @@ def sdx55_deinit(WKDIR):
     os.chdir(WKDIR)
 
 
-def usage(WKDIR):
+def usage():
 	print "\nUsage:"
-	print "We need atlest one arg"
-	print "example: python git_update.py  LE.BR.1.2.1-99700-9x07 \n"
+	print "We need atlest one arg\n"
+	print "example:\033[31m"
+	print "python syncbuild.py  ALL				;update all repositories"
+	print "python syncbuild.py  LE.BR.1.2.1-99700-9x07	;update specific repository\n"
 
 def main(argv):
     config_xml = None
     if len(argv) < 2:
         usage()
-    
+        return
+
+    # kill the last process
+    #os.system("ps -aux | grep /usr/bin/python | grep -v grep |awk '{print $2}' |xargs  kill -9")
+
+    print get_time()+"********** update repository now begin **********\n"
+    os.chdir("/home/git/repositories/baseline")
     WKDIR = os.getcwd()
     print WKDIR
 
@@ -241,7 +300,7 @@ def main(argv):
     #sdx55_deinit(WKDIR)
     if "9x07" in build_id:
         version = build_id.split('-')[1]
-        if int(version) >= 61900:
+        if int(version) >= 61900 or "LE.UM.3.4.2" or "LE.UM.1.1" in build_id:
             print "Pbulic Version : "+version
             manifest = WKDIR+"/quic/le/le/manifest/"+build_id+".xml"
             manifest_check(manifest)
@@ -259,7 +318,7 @@ def main(argv):
         print os.getcwd()
         print "QSDK config"
 
-    if "SDX24" or "SDX20" in build_id:
+    if "SDX2" in build_id:
         manifest = WKDIR+"/quic/le/le/manifest/"+build_id+".xml"
         manifest_check(manifest)
         
@@ -274,9 +333,10 @@ def main(argv):
         print "SAM config"
     
     if "SDX55" in build_id:
-        version = build_id.split('-')[1]
-        if int(version) >= 4900:
-            print "Pbulic Version : "+version
+        version_br = build_id.split('-')[0]
+        version_num = build_id.split('-')[1]
+        if int(version_num) >= 4900 or version_br == "LE.UM.4.3.3.r1" or version_br == "LE.UM.4.2.2.r1":
+            print "Pbulic Version : "+build_id
             manifest = WKDIR+"/quic/le/le/manifest/"+build_id+".xml"
             manifest_check(manifest)
 
@@ -291,17 +351,28 @@ def main(argv):
     
     os.chdir(WKDIR)
     
+    if "modem" == build_id:
+        modem_repository = WKDIR+"/quectel-wireless-solutions-co-ltd/"
+        update_modme_repository(modem_repository)
+        return
+
+    #sdx55_deinit(WKDIR)
     if "ALL" == build_id:
-        projectslist_file = "../../projects.list"
-        update_all_repository(projectslist_file)
+        projects_list_file = "../../projects.list"
+        update_all_repository(projects_list_file)
     else:
+        #sdx55_init(WKDIR)
         handle_gitlist_xml(manifest)
+        print "handle complate"
     
     if "SDX55" in build_id:
-        sdx55_deinit(WKDIR)
+        #sdx55_deinit(WKDIR)
+        print "sdx55 deinit"
 
+    #sdx55_init(WKDIR)
     modem_repository = WKDIR+"/quectel-wireless-solutions-co-ltd/"
     update_modme_repository(modem_repository)
+    #sdx55_deinit(WKDIR)
 
 if __name__ == '__main__':
     main(sys.argv)
