@@ -1,4 +1,6 @@
 #!/bin/sh
+#dir  /usr/share/udhcpc/default.script
+
 [ -z "$1" ] && echo "Error: should be run by udhcpc" && exit 1
 
 set_classless_routes() {
