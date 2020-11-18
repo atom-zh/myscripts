@@ -7,4 +7,5 @@ Download git repositories from manifest.xml file.
 called by quectel-CM
 
 ## Vim Config
+.vimrc
 Config Vim as IDE
