@@ -6,5 +6,5 @@ Download git repositories from manifest.xml file.
 /usr/share/udhcpc/default.script
 called by quectel-CM
 
-## Vin Config
+## Vim Config
 Config Vim as IDE
