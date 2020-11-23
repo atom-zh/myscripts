@@ -13,3 +13,8 @@ Config Vim as IDE
 ## SSH Config
 config
 Use two ssh key in one machine
+
+## E111 GW Config
+setting.sh
+Excelfor server start up in E111 GW Config
+
