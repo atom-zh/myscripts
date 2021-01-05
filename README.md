@@ -18,3 +18,8 @@ Use two ssh key in one machine
 setting.sh
 Excelfor server start up in E111 GW Config
 
+## Excelfor log Auto Analyze
+AutoAnalyze.py
+
+
+
